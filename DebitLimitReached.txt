@@ -1,0 +1,171 @@
+//QueryMapper
+
+
+//DAO Implementation
+
+	//Method add by Naguleshan on 21/09/2019
+		@Override
+		public boolean debitLimitValueCheck(long fromAccNo, int amt) {
+			
+			
+			LocalDate today = LocalDate.now();
+			String tod=today.toString();
+			java.sql.Date sqlToday = java.sql.Date.valueOf(today);
+			int debitLimit = 1000000;
+			
+			ArrayList<Transactions> transactionsList=new ArrayList<Transactions>();
+			try {
+				System.out.println("date="+sqlToday);				
+				
+				pst=con.prepareStatement(QueryMapper.GET_TODAY_TRANSACTIONS);
+				pst.setDate(1,sqlToday);
+				pst.setLong(2, fromAccNo);
+				ResultSet rs=pst.executeQuery();
+				System.out.println(rs.getFetchSize());
+
+				while(rs.next())
+				{					
+					int transAmt=rs.getInt(1);
+					debitLimit -= transAmt;
+					
+				}
+				if((debitLimit-amt)<0)
+					return false;
+				else 
+					return true;
+				
+			} catch (SQLException e) {
+				e.printStackTrace();
+				//throw new BankException(e.getMessage());
+			}
+			
+			return true;
+		}
+	
+
+//Interfaces
+	public boolean debitLimitValueCheck(long fromAccNo, int amt); 
+
+//Service
+
+	@Override
+	public boolean debitLimitValueCheck(long fromAccNo, int amt) {
+		return dao.debitLimitValueCheck(fromAccNo,amt);
+	}
+
+
+
+
+//UI Layer
+
+
+private static boolean otherBankFundTransfer()
+	{
+		try
+		{
+		payeeService = new PayeeServiceImpl();
+		System.out.println("From:	");
+		System.out.println("\t\tSelect the Account Number from the below list");
+		ArrayList<Long> allAccounts = userService.getAccounts(userId);
+		int listNo=0;
+		for(long acc : allAccounts)
+		{
+			System.out.println((++listNo)+"."+acc); 
+		}
+		int userChoice =Integer.parseInt(br.readLine());
+		if(userChoice >=1 && userChoice <= listNo)
+			{
+				long fromAccNo = allAccounts.get(--userChoice);
+				System.out.println("To:	");
+				System.out.println("\t\t1.Payee list 2.Add Payee and continue");
+				userChoice = Integer.parseInt(br.readLine());
+				if(userChoice==1)
+				{
+					System.out.println("\t\tSelect the Account Number from the Payee list");
+					ArrayList<PayeeTable> payeeAccounts = payeeService.getPayee(fromAccNo);
+					listNo=0;
+					System.out.printf("\n%20s	%20s %20s","S.No","NickName","Account Id");
+					System.out.println();
+					for(PayeeTable payee : payeeAccounts)
+					{ 
+						System.out.printf("\n%20s	%20s %20s",(++listNo),payee.getNick_name(),payee.getPayee_account_id());
+					}
+					System.out.println();
+						userChoice = Integer.parseInt(br.readLine());
+						if(userChoice>=1 && userChoice<=listNo)	
+						{	PayeeTable toAccNo = payeeAccounts.get(--userChoice);
+						
+							System.out.println("Enter the amount to be transferred");
+							int amt = Integer.parseInt(br.readLine());
+							boolean debitLimitValue = transactionService.debitLimitValueCheck(fromAccNo,amt);
+							if(debitLimitValue)							
+							{System.out.println("Enter the transaction password");
+							String tranPwd = br.readLine();
+							//Validation for transaction password pending
+							System.out.println(transactionService.addTransaction(fromAccNo, toAccNo.getNick_name() , amt, tranPwd));
+							}
+							else
+								System.out.println("Debit Limit Reached......Unable to transfer the amount");
+						}
+						else
+							System.out.println("Enter a valid input");
+				}	
+				else if(userChoice==2)
+				{
+					System.out.println("Enter Payee Nick Name");
+					String  payeeName= br.readLine();
+					
+					System.out.println("Enter Payee Account Id");
+					long payeeAccId =Long.parseLong(br.readLine());
+					
+					PayeeTable newPayee = new PayeeTable(fromAccNo, payeeAccId, payeeName);
+					payeeService.addPayee(newPayee);
+					
+					System.out.println("Now proceed the transaction");
+					
+					System.out.println("To:	");
+					System.out.println("Payee list");
+
+						System.out.println("\t\tSelect the Account Number from the Payee list");
+						ArrayList<PayeeTable> payeeAccounts = payeeService.getPayee(fromAccNo);
+						listNo=0;
+						System.out.printf("%20s	%20s %20s","S.No","NickName","Account Id");
+						for(PayeeTable payee : payeeAccounts)
+						{ 
+							System.out.printf("%20s	%20s %20s",(++listNo),payee.getNick_name(),payee.getPayee_account_id());
+						}
+						userChoice = Integer.parseInt(br.readLine());
+						if(userChoice>=1 && userChoice<=listNo)	
+						{	PayeeTable toAccNo = payeeAccounts.get(--userChoice);
+						
+							System.out.println("Enter the amount to be transferred");
+							int amt = Integer.parseInt(br.readLine());
+							
+							boolean debitLimitValue = transactionService.debitLimitValueCheck(fromAccNo,amt);
+							if(debitLimitValue)							
+							{System.out.println("Enter the transaction password");
+							String tranPwd = br.readLine();
+							//Validation for transaction password pending
+							System.out.println(transactionService.addTransaction(fromAccNo, toAccNo.getNick_name() , amt, tranPwd));
+							}
+							else
+								System.out.println("Debit Limit Reached......Unable to transfer the amount");
+				
+						}
+						else
+							System.out.println("Enter a valid input");
+			
+				}
+			}
+		}
+		catch (BankException e) {
+			System.out.println(e);
+			e.printStackTrace();
+		}
+		catch(IOException e)
+		{
+			e.printStackTrace();
+		}
+		return true;
+	}
+	
